@@ -24,9 +24,17 @@ class WebhookController < ApplicationController
       when Line::Bot::Event::Message
         case event.type
         when Line::Bot::Event::MessageType::Text
+					case event.message['text']	
+					when /品川/, /船橋/, /池袋/, /八王子/, /新宿/, /調布/, /目黒/ then
+						result = "二郎あります"
+					when /日本/, /関東/, "東京", "東京都" then
+						result = "範囲が広すぎます"
+					else
+						result = "二郎ありません"
+					end
           message = {
             type: 'text',
-            text: event.message['text']
+            text: result
           }
           client.reply_message(event['replyToken'], message)
         when Line::Bot::Event::MessageType::Image, Line::Bot::Event::MessageType::Video

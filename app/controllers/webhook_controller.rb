@@ -7,7 +7,6 @@ class WebhookController < ApplicationController
   protect_from_forgery except: [:callback] # CSRF対策無効化
   
 	HAVE_A_JIRO = ["品川", "船橋", "池袋", "八王子", "新宿", "調布", "目黒"]
-	KEY_ID = "7cea63677b2284213dd45b3b2fbf8a99"
 
   def client
     @client ||= Line::Bot::Client.new { |config|

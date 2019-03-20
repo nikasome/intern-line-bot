@@ -6,7 +6,9 @@ require 'json'
 class WebhookController < ApplicationController
   protect_from_forgery except: [:callback] # CSRF対策無効化
   
-	HAVE_A_JIRO = ["品川", "船橋", "池袋", "八王子", "新宿", "調布", "目黒"]
+  RESTAURANT_NAME = "ラーメン二郎"
+  GNAVI_URL = "https://api.gnavi.co.jp"
+  GNAVI_RESTAURANT_API = "/RestSearchAPI/v3/?"
 
   def client
     @client ||= Line::Bot::Client.new { |config|
@@ -30,19 +32,18 @@ class WebhookController < ApplicationController
         case event.type
         when Line::Bot::Event::MessageType::Text
 
-					message = {		#default message
-            	type: 'text',
-            	text: '二郎ありません'
-         	}
-					if HAVE_A_JIRO.include?(event.message['text'])
-						result = get_info(event.message['text'])
-						message['text'] = result[0] + "\n" + result[1] + "\n" + result[2]
-						for i in result do
-							p i
-						end
-					end
-
+          message = {   #default message
+              type: 'text',
+              text: '二郎ありません'
+          }
+          
+          area = event.message['text']
+          restaurant_req = restaurant_request(RESTAURANT_NAME, area)
+          encode_res = get_encode_res(restaurant_url, restaurant_req)
+          restaurant_res = get_restaurant_parse(encode_res)
+          message[:text] = restaurant_res 
           client.reply_message(event['replyToken'], message)
+
         when Line::Bot::Event::MessageType::Image, Line::Bot::Event::MessageType::Video
           response = client.get_message_content(event.message['id'])
           tf = Tempfile.open("content")
@@ -53,24 +54,35 @@ class WebhookController < ApplicationController
     head :ok
   end
 
-	def get_info(area)
-		url = URI.parse("https://api.gnavi.co.jp")
-		http = Net::HTTP.new(url.host, url.port)
-		http.use_ssl = true
-		params = URI.encode_www_form({keyid: ENV["KEY_ID"], name: 'ラーメン二郎', freeword: area}) 
-		req = Net::HTTP::Get.new("/RestSearchAPI/v3/?#{params}")
-		res = http.request(req)
+  def restaurant_url
+    URI.parse(GNAVI_URL)
+  end
 
-		###code_api   &&  parse_api
-		api_response = JSON.parse(res.body)
+  def restaurant_request(name, area)
+    params = URI.encode_www_form({keyid: ENV["KEY_ID"], name: name, freeword: area}) 
+    Net::HTTP::Get.new(GNAVI_RESTAURANT_API << params)
+  end
 
-		return api_result = [
-			api_response['rest'][0]['name'],		#店舗名
-			api_response['rest'][0]['address'],	#店舗住所
-			api_response['rest'][0]['url']			#店舗URL
-		]
+  def get_encode_res(url, req)
+    http = Net::HTTP.new(url.host, url.port)
+    http.use_ssl = true
+    http.request(req)
+  end
 
-		#return <String>
-		#statuscodeで処理
-	end
+  def get_restaurant_parse(encode_res)
+    parse_res = JSON.parse(encode_res.body)
+    <<~STR
+        #{parse_res['rest'][0]['name']}
+
+        住所:
+        #{parse_res['rest'][0]['address']}
+        
+        URL:
+        #{parse_res['rest'][0]['url']}
+      STR
+  rescue => e
+    p e
+    "Error"
+  end
+
 end

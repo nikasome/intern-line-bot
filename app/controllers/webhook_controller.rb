@@ -29,13 +29,17 @@ class WebhookController < ApplicationController
       when Line::Bot::Event::Message
         case event.type
         when Line::Bot::Event::MessageType::Text
+
 					message = {		#default message
             	type: 'text',
             	text: '二郎ありません'
          	}
 					if HAVE_A_JIRO.include?(event.message['text'])
-						result = getInfo(event.message['text'])
+						result = get_info(event.message['text'])
 						message['text'] = result[0] + "\n" + result[1] + "\n" + result[2]
+						for i in result do
+							p i
+						end
 					end
 
           client.reply_message(event['replyToken'], message)
@@ -49,13 +53,15 @@ class WebhookController < ApplicationController
     head :ok
   end
 
-	def getInfo(area)
+	def get_info(area)
 		url = URI.parse("https://api.gnavi.co.jp")
 		http = Net::HTTP.new(url.host, url.port)
 		http.use_ssl = true
-		params = URI.encode_www_form({keyid: KEY_ID, name: 'ラーメン二郎', freeword: area}) 
+		params = URI.encode_www_form({keyid: ENV["KEY_ID"], name: 'ラーメン二郎', freeword: area}) 
 		req = Net::HTTP::Get.new("/RestSearchAPI/v3/?#{params}")
 		res = http.request(req)
+
+		###code_api   &&  parse_api
 		api_response = JSON.parse(res.body)
 
 		return api_result = [
@@ -63,5 +69,8 @@ class WebhookController < ApplicationController
 			api_response['rest'][0]['address'],	#店舗住所
 			api_response['rest'][0]['url']			#店舗URL
 		]
+
+		#return <String>
+		#statuscodeで処理
 	end
 end

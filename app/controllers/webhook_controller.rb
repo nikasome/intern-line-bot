@@ -2,6 +2,8 @@ require 'line/bot'
 
 class WebhookController < ApplicationController
   protect_from_forgery except: [:callback] # CSRF対策無効化
+  
+	HAVE_A_JIRO = ["品川", "船橋", "池袋", "八王子", "新宿", "調布", "目黒"]
 
   def client
     @client ||= Line::Bot::Client.new { |config|
@@ -24,14 +26,14 @@ class WebhookController < ApplicationController
       when Line::Bot::Event::Message
         case event.type
         when Line::Bot::Event::MessageType::Text
-					case event.message['text']	
-					when /品川/, /船橋/, /池袋/, /八王子/, /新宿/, /調布/, /目黒/ then
-						result = "二郎あります"
-					when /日本/, /関東/, "東京", "東京都" then
-						result = "範囲が広すぎます"
+					result = ""
+					if HAVE_A_JIRO.include?(event.message['text'])
+						result =  "二郎あります"
 					else
-						result = "二郎ありません"
+						result =  "二郎ありません"
 					end
+					#when /日本/, /関東/, /東京.?/ then
+					#	return "範囲が広すぎます"
           message = {
             type: 'text',
             text: result

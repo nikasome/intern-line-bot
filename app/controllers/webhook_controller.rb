@@ -39,8 +39,8 @@ class WebhookController < ApplicationController
           
           area = event.message['text']
           restaurant_req = restaurant_request(RESTAURANT_NAME, area)
-          encode_res = get_encode_res(restaurant_url, restaurant_req)
-          restaurant_res = get_restaurant_parse(encode_res)
+          encode_res = encode_res(restaurant_url, restaurant_req)
+          restaurant_res = restaurant_parse(encode_res)
           message[:text] = restaurant_res 
           client.reply_message(event['replyToken'], message)
 
@@ -63,13 +63,13 @@ class WebhookController < ApplicationController
     Net::HTTP::Get.new(GNAVI_RESTAURANT_API << params)
   end
 
-  def get_encode_res(url, req)
+  def encode_res(url, req)
     http = Net::HTTP.new(url.host, url.port)
     http.use_ssl = true
     http.request(req)
   end
 
-  def get_restaurant_parse(encode_res)
+  def restaurant_parse(encode_res)
     parse_res = JSON.parse(encode_res.body)
     <<~STR
         #{parse_res['rest'][0]['name']}
@@ -81,8 +81,7 @@ class WebhookController < ApplicationController
         #{parse_res['rest'][0]['url']}
       STR
   rescue => e
-    p e
-    "Error"
+    "二郎ありません"
   end
 
 end

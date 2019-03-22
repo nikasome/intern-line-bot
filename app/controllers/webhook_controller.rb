@@ -1,9 +1,14 @@
 require 'line/bot'
+require 'net/http'
+require 'uri'
+require 'json'
 
 class WebhookController < ApplicationController
   protect_from_forgery except: [:callback] # CSRF対策無効化
   
-	HAVE_A_JIRO = ["品川", "船橋", "池袋", "八王子", "新宿", "調布", "目黒"]
+  RESTAURANT_NAME = "ラーメン二郎"
+  GNAVI_URL = "https://api.gnavi.co.jp"
+  GNAVI_RESTAURANT_API = "/RestSearchAPI/v3/?"
 
   def client
     @client ||= Line::Bot::Client.new { |config|
@@ -26,19 +31,20 @@ class WebhookController < ApplicationController
       when Line::Bot::Event::Message
         case event.type
         when Line::Bot::Event::MessageType::Text
-					result = ""
-					if HAVE_A_JIRO.include?(event.message['text'])
-						result =  "二郎あります"
-					else
-						result =  "二郎ありません"
-					end
-					#when /日本/, /関東/, /東京.?/ then
-					#	return "範囲が広すぎます"
-          message = {
-            type: 'text',
-            text: result
+
+          message = {   #default message
+              type: 'text',
+              text: '二郎ありません'
           }
+          
+          area = event.message['text']
+          restaurant_req = restaurant_request(RESTAURANT_NAME, area)
+          encode_res = encode_response(restaurant_url, restaurant_req)
+          if encode_res.code == "200"
+            message[:text] = restaurant_parse(encode_res)
+          end
           client.reply_message(event['replyToken'], message)
+
         when Line::Bot::Event::MessageType::Image, Line::Bot::Event::MessageType::Video
           response = client.get_message_content(event.message['id'])
           tf = Tempfile.open("content")
@@ -48,4 +54,37 @@ class WebhookController < ApplicationController
     }
     head :ok
   end
+
+  def restaurant_url
+    URI.parse(GNAVI_URL)
+  end
+
+  def restaurant_request(name, area)
+    params = URI.encode_www_form({keyid: ENV["KEY_ID"], name: name, freeword: area}) 
+    Net::HTTP::Get.new(GNAVI_RESTAURANT_API << params)
+  end
+
+  def encode_response(url, req)
+    http = Net::HTTP.new(url.host, url.port)
+    http.use_ssl = true
+    http.request(req)
+  rescue => e
+    "接続中にエラーが発生しました"
+  end
+
+  def restaurant_parse(encode_res)
+    parse_res = JSON.parse(encode_res.body)
+    <<~STR
+        #{parse_res['rest'][0]['name']}
+
+        住所:
+        #{parse_res['rest'][0]['address']}
+        
+        URL:
+        #{parse_res['rest'][0]['url']}
+    STR
+  rescue => e
+    "読み込み中にエラーが発生しました"
+  end
+
 end

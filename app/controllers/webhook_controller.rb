@@ -39,9 +39,10 @@ class WebhookController < ApplicationController
           
           area = event.message['text']
           restaurant_req = restaurant_request(RESTAURANT_NAME, area)
-          encode_res = encode_res(restaurant_url, restaurant_req)
-          restaurant_res = restaurant_parse(encode_res)
-          message[:text] = restaurant_res 
+          encode_res = encode_response(restaurant_url, restaurant_req)
+          if encode_res.code == "200"
+            message[:text] = restaurant_parse(encode_res)
+          end
           client.reply_message(event['replyToken'], message)
 
         when Line::Bot::Event::MessageType::Image, Line::Bot::Event::MessageType::Video
@@ -63,10 +64,12 @@ class WebhookController < ApplicationController
     Net::HTTP::Get.new(GNAVI_RESTAURANT_API << params)
   end
 
-  def encode_res(url, req)
+  def encode_response(url, req)
     http = Net::HTTP.new(url.host, url.port)
     http.use_ssl = true
     http.request(req)
+  rescue => e
+    "接続中にエラーが発生しました"
   end
 
   def restaurant_parse(encode_res)
@@ -79,9 +82,9 @@ class WebhookController < ApplicationController
         
         URL:
         #{parse_res['rest'][0]['url']}
-      STR
+    STR
   rescue => e
-    "二郎ありません"
+    "読み込み中にエラーが発生しました"
   end
 
 end

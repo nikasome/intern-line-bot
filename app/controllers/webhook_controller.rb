@@ -9,6 +9,8 @@ class WebhookController < ApplicationController
   RESTAURANT_NAME = "ラーメン二郎"
   GNAVI_URL = "https://api.gnavi.co.jp"
   GNAVI_RESTAURANT_API = "/RestSearchAPI/v3/?"
+  REQUIRE_STORES_WORD = "全国"
+  JIRO_STORES = "JIRO_STORE.txt"
 
   def client
     @client ||= Line::Bot::Client.new { |config|
@@ -32,16 +34,21 @@ class WebhookController < ApplicationController
         case event.type
         when Line::Bot::Event::MessageType::Text
 
-          message = {   #default message
-              type: 'text',
-              text: '二郎ありません'
+          message = {
+            type: 'text',
+            text: '二郎ありません'
           }
           
           area = event.message['text']
-          restaurant_req = restaurant_request(RESTAURANT_NAME, area)
-          encode_res = encode_response(restaurant_url, restaurant_req)
-          if encode_res.code == "200"
-            message[:text] = restaurant_parse(encode_res)
+          if area == REQUIRE_STORES_WORD
+            message[:text] = read_file(JIRO_STORES)
+          else
+            restaurant_req = restaurant_request(RESTAURANT_NAME, area)
+            encode_res = encode_response(restaurant_url, restaurant_req)
+            # Rack::Utils::SYMBOL_TO_STATUS_CODE[:ok]でも良いが可読性を考慮して"200"とした。
+            if encode_res.code == "200"               
+              message[:text] = restaurant_parse(encode_res)
+            end
           end
           client.reply_message(event['replyToken'], message)
 
@@ -53,6 +60,15 @@ class WebhookController < ApplicationController
       end
     }
     head :ok
+  end
+
+  def read_file(file_pass)
+    file = File.open(file_pass, "r")
+    file.read
+  rescue => e
+    "ファイルの読み込み中にエラーが発生しました"
+  ensure
+    file.close
   end
 
   def restaurant_url
@@ -84,7 +100,7 @@ class WebhookController < ApplicationController
         #{parse_res['rest'][0]['url']}
     STR
   rescue => e
-    "読み込み中にエラーが発生しました"
+    "店舗情報の読み込み中にエラーが発生しました"
   end
 
 end
